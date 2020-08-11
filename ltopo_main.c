@@ -163,7 +163,7 @@ return 0;
         return -1;
         }
 #if defined ARCHIVE_TEST 
-    ret=ltopo_job_set_path("/home/heguang/work/ltopo/test/ltopo/data/input/topology/1589472000-1589475599");
+    ret=ltopo_job_set_path("/home/user/Desktop/test-ltopo/ltopo/test/ltopo/data/input/topology/1589472000-1589475599");
     if(ret!=0){
         printf(LTOPO_ERR_TAG "%s, ltopo_job_set_path failed, system abort!\n", __FUNCTION__);
         return -1;
@@ -189,7 +189,7 @@ return 0;
         }
     sleep(1);
 #elif defined CALCU_PATH 
-    run_path("/home/heguang/work/ltopo/test/tangshan/0712");
+    run_path("/home/user/Desktop/test-ltopo/ltopo/test/tangshan/0712");
 #elif defined STATIS_TEST
     ltopo_job_set_path(path);
     sleep(1);

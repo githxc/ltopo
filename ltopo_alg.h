@@ -38,6 +38,11 @@ typedef enum
     LTOPO_TYPE_PHASE_C,
     LTOPO_TYPE_PHASE_MAX
 } LTOPO_TYPE_PHASE;
+#define LTOPO_DOWN_THRESHOLD_VALUE -1000
+#define LTOPO_UP_THRESHOLD_VALUE 1000
+#define LTOPO_DOWNE_THRESHOLD_VALUE 1000
+#define LTOPO_UPE_THRESHOLD_VALUE -1000
+
 
 #define LTOPO_EVENT_TYPE_VOID 0
 #define LTOPO_EVENT_TYPE_SMOOTH 1 // type, start, vcount, load[0] load[1] ...
@@ -78,6 +83,7 @@ typedef struct struct_METER_INFO
     struct struct_LTOPO_MBOX_NODE * pm;  //记录g_ltopo.meters中的指针
     int owstatus;           //outer window status
     int iwstatus;           //inner window status
+    int wstatus;
     int next_needed;          //是否需要扫描下一根扫描线，以替代本扫描线
     METER_STATIS s;
 } METER_INFO;
@@ -110,6 +116,7 @@ typedef struct struct_LTOPO_JUMP_EV_INFO
     int index;
     int start;
     int direction;
+	int pulse;
     int value;
     int period;
     int minv;

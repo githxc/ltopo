@@ -809,6 +809,47 @@ int maxvalue_index_in_load(LTOPO_LOAD * e, int count)
         }
     return index;
 }
+//窗口是否有脉冲
+int is_window_pulse(LTOPO_LOAD *w, int wsize)
+{
+	int i;
+	int n=0;
+	int d_value;
+	for(i=0;i<wsize;i++)
+		{
+			d_value=w[i].ap-w[i-1].ap;
+			
+			if(d_value>0)
+				{
+					if(d_value>LTOPO_UP_THRESHOLD_VALUE)
+						{
+							while(d_value>LTOPO_UPE_THRESHOLD_VALUE)
+								{
+									n++;
+									d_value=w[i+n].ap-w[i+n-1].ap;
+									if(n+1==wsize)
+										return 2;
+								}
+							return 1;
+						}
+				}
+			else
+				{
+					if(d_value<LTOPO_DOWN_THRESHOLD_VALUE)
+						{
+							while(d_value<LTOPO_DOWNE_THRESHOLD_VALUE)
+								{
+									n++;
+									d_value=w[i+n].ap-w[i+n-1].ap;
+									if(n+1==wsize)
+										return 2;
+								}
+							return 1;
+						}
+				}
+		}
+	return 0;
+}
 //窗口是否有跳变
 int is_window_jump(LTOPO_LOAD * w, int wsize, int vh)
 {
@@ -986,12 +1027,13 @@ int ltopo_alg_gen_ev(int sline, LTOPO_LOAD * w, int w_size, LTOPO_JUMP_EV_INFO *
     int i, minindex, maxindex;
     int start=-1, end=-1;
     int wsize=w_size+LTOPO_BRANCH_WINDOW_ADD;
-    
+    int pulse;
     /*
-    1确定方向，+还是-，
+    1确定方向，+还是-
     2找到启动时间点
     3找到结束点，计算跳变值
     4计算时间差
+    5判断是否脉冲
     */
     
 printf(LTOPO_TAG "%s, ", __FUNCTION__);
@@ -1005,7 +1047,8 @@ printf("\n");
     mbev->minv=w[minindex].ap;
     mbev->maxv=w[maxindex].ap;
     mbev->value=mbev->maxv-mbev->minv;
-
+	mbev->pulse=is_window_pulse(w, wsize);
+	
     if(mbev->direction==LTOPO_DIRECTION_UP){
         for(i=minindex;i<maxindex;i++){
 //            if(w[i].ap>=0 && w[i+1].ap-w[i].ap>g_ltopoalg.vh){
@@ -1064,7 +1107,7 @@ printf("\n");
         mbev->period=end-start;
         mbev->value=w[start].ap-w[end].ap;
         }
-    printf(LTOPO_TAG "direction %d, start %d, value %d, period %d\n", mbev->direction, mbev->start, mbev->value, mbev->period);
+    printf(LTOPO_TAG "direction %d, start %d, value %d, period %d,pulse %d\n", mbev->direction, mbev->start, mbev->value, mbev->period,mbev->pulse);
     printf(LTOPO_TAG "max %d, min %d\n", mbev->maxv, mbev->minv);
     if(mbev->value>50000){
         printf("##** %s, %s, %d\n##** power: ", mbev->type==LTOPO_METER_TYPE_MBOX?"mbox":"branch", mbev->addr, mbev->start);
@@ -1093,8 +1136,8 @@ static void ltopo_alg_ev_list_show(void *arg)
     printf(LTOPO_TAG "[EV list]\n");
     printf(LTOPO_TAG "addr %s, phase %s, type %d, index %d\n",
             pmeter->event_file, ltopo_phase_name[  p->ev.phase], p->ev.type, p->ev.index);
-    printf(LTOPO_TAG "start %d, direction %d, value %d, minv %d, max %d, period %d\n", 
-            p->ev.start, p->ev.direction, p->ev.value, p->ev.minv, p->ev.maxv, p->ev.period);
+    printf(LTOPO_TAG "start %d, direction %d, value %d, minv %d, max %d, period %d,pulse %d\n", 
+            p->ev.start, p->ev.direction, p->ev.value, p->ev.minv, p->ev.maxv, p->ev.period,p->ev.pulse);
     printf(LTOPO_TAG "addr %s, father %s\n", p->ev.addr, p->ev.father);
 }
 
@@ -1626,8 +1669,56 @@ int ltopo_alg_scan_branch(int phase, char * id)
     return 0;
 
 }
+int ltopo_alg_scan_node(int phase, int sline, int wsize, int msize, int vh, int vl)
+	{
+		LTOPO_LIST *head;
+		LTOPO_LIST *p;
+		METER_INFO * meter;
+		int j;
+		head=(LTOPO_LIST*)malloc(sizeof(LTOPO_LIST));
+		head->next=NULL;
+		for(j=0;j<g_ltopoalg.mcount[phase];j++){
+			meter=&g_ltopoalg.mbox[phase][j];
+			p->next=head->next;
+			head->next=p;
+			p=ltopo_alg_print_meter_window(meter, sline, wsize, msize, vh, vl);
+			}
+		for(j=0;j<g_ltopoalg.bcount[phase];j++){
+			meter=&g_ltopoalg.branch[phase][j];
+			p->next=head->next;
+			head->next=p;
+			p=ltopo_alg_print_meter_window(meter, sline, wsize, msize, vh, vl);
+			}
+		return 0;
+		
+	}
+int ltopo_alg_scan_ev(int phase,int action,LTOPO_JUMP_EV_INFO * mbev)
+{
+	int lcount/*扫描线的个数*/, mcount/*表箱终端的个数*/, bcount/*分支单元的个数*/;
+	int i,j;
+	int jindex[3600];
+	int m_w_s_count, m_w_j_count;	/*窗口跳变个数，平滑个数*/
+	mcount=g_ltopoalg.mcount[phase];
+	bcount=g_ltopoalg.bcount[phase];
+	LTOPO_LIST head;
+	head.next=NULL;
+	for(i=0;i<mcount;i++)
+		{
+			ltopo_alg_scan_node(&g_ltopoalg.phase, int sline, g_ltopoalg.wsize, int msize, g_ltopoalg.vh, g_ltopoalg.vl);
+			if(g_ltopoalg.mbox[phase][j].wstatus==LTOPO_EVENT_TYPE_SMOOTH)
+                m_w_s_count++;
+            else if(g_ltopoalg.mbox[phase][j].wstatus==LTOPO_EVENT_TYPE_JUMP)
+				{
+                	if(jindex ==-1) //首先记录到jindex数组中
+                    	jindex =j;
+               	 	m_w_j_count++;
+                }
+	
+}
+
 int ltopo_alg_scan(int phase, int action)
 {
+	
     int s1jump=0;
     int i, j, ret;
     int lcount/*扫描线个数*/, mcount/*meter box个数*/;
