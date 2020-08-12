@@ -3,7 +3,7 @@
 #include <time.h>
 #include <string.h>
 #include <dirent.h>
-
+#include "math.h"
 #include "ltopo_xml.h"
 #include "ltopo_alg.h"
 #include "ltopo.h"
@@ -712,7 +712,7 @@ int ltopo_alg_read_path(int phase)
 //                strncpy(g_ltopoalg.branch[phase][bcount].addr, &entry->d_name[3], LTOPO_ADDR_LEN-1);
                 strncpy(g_ltopoalg.branch[phase][bcount].addr, &entry->d_name[3], 12);
 
-                g_ltopoalg.branch[phase][bcount].load=ltopo_alg_restore_load(entry->d_name);//
+                g_ltopoalg.branch[phase][bcount].load=ltopo_alg_restore_load(entry->d_name);
                 if(!g_ltopoalg.branch[phase][bcount].load){
                     printf(LTOPO_ERR_TAG "%s ltopo_alg_restore_load failed, %s\n", __FUNCTION__, 
                                     g_ltopoalg.branch[phase][bcount].event_file);
@@ -889,6 +889,10 @@ int print_alg_print_all_window(int phase, int sline, int wsize, int msize, int v
         }
     return 0;
 }
+
+
+
+
 //扫描窗口
 int ltopo_alg_scan_window(METER_INFO * meter, int sline, int wsize, int msize, int vh, int vl)
 {
@@ -897,75 +901,40 @@ int ltopo_alg_scan_window(METER_INFO * meter, int sline, int wsize, int msize, i
     m=&meter->load[sline];
     wleft=sline+((msize-wsize)>>1);
     w=&meter->load[wleft];
+    //时间戳+（msize-wsize）右移一位
     
-#ifdef ALG_DEBUG 
-    int i;
-    for(i=0;i<=msize;i++)
-        printf(LTOPO_TAG "%d ", m[i].ap);
-    printf(LTOPO_TAG " -->");
-#endif
     //如果本窗口有丢数据，放弃
     if(is_window_nodata(w,wsize)){
-#ifdef ALG_DEBUG            
-        printf(LTOPO_TAG "no data ");
-#endif
         meter->iwstatus=LTOPO_EVENT_NO_DATA;
         }
     //如果本窗口有跳变，先处理，判断jump时需要先剔除LTOPO_DATA_MIDDLE -1的值
     else if(is_window_jump(w, wsize, vh)){
-#ifdef ALG_DEBUG            
-        printf(LTOPO_TAG "jump ");
-#endif
         meter->iwstatus=LTOPO_EVENT_TYPE_JUMP;
         }
     else if(is_window_middle(w,wsize)){
-#ifdef ALG_DEBUG            
-        printf(LTOPO_TAG "middle ");
-#endif
         meter->iwstatus=LTOPO_EVENT_TYPE_MIDDLE;
         }
     else if(is_window_smooth(w, wsize, vl)){
-#ifdef ALG_DEBUG            
-        printf(LTOPO_TAG "smooth ");
-#endif
         meter->iwstatus=LTOPO_EVENT_TYPE_SMOOTH;
         }
     else{
-#ifdef ALG_DEBUG            
-        printf(LTOPO_TAG "middle2 ");
-#endif
         meter->iwstatus=LTOPO_EVENT_TYPE_MIDDLE;
         }
 
     
     if(is_window_nodata(m,msize)){
-#ifdef ALG_DEBUG            
-        printf(LTOPO_TAG "no data \n");
-#endif
         meter->owstatus=LTOPO_EVENT_NO_DATA;
         }
     else if(is_window_jump(m, msize, vh)){
-#ifdef ALG_DEBUG            
-        printf(LTOPO_TAG "jump \n");
-#endif
         meter->owstatus=LTOPO_EVENT_TYPE_JUMP;
         }
     else if(is_window_middle(m,msize)){
-#ifdef ALG_DEBUG            
-        printf(LTOPO_TAG "middle \n");
-#endif
         meter->owstatus=LTOPO_EVENT_TYPE_MIDDLE;
         }
     else if(is_window_smooth(m, msize, vl)){
-#ifdef ALG_DEBUG            
-        printf(LTOPO_TAG "smooth \n");
-#endif
         meter->owstatus=LTOPO_EVENT_TYPE_SMOOTH;
         }
     else{
-#ifdef ALG_DEBUG            
-        printf(LTOPO_TAG "middle2 \n");
-#endif
         meter->owstatus=LTOPO_EVENT_TYPE_MIDDLE;
         }
     meter->next_needed=0;
@@ -975,9 +944,11 @@ int ltopo_alg_scan_window(METER_INFO * meter, int sline, int wsize, int msize, i
             meter->next_needed=1;
             }
         }
-    
     return 0;
 }
+
+
+
 
 //生成跳变的特征值，包括方向，跳变值，启动时点， 跳变时长，
 //特征值: eigenvalue-->ev
@@ -1071,13 +1042,11 @@ printf("\n");
         for(i=0;i<=wsize;i++)
             printf("%d ", w[i].ap);
         printf("\n");
-        printf("##** voltage: ", mbev->value);
+        printf("##** voltage:%d ", mbev->value);
         for(i=0;i<=wsize;i++)
             printf("%d ", w[i].v);
         printf("\n##**\n");
         }
-        
-        
     return 0;
 }
 static void ltopo_alg_ev_list_show(void *arg)
@@ -1166,6 +1135,7 @@ int ltopo_alg_merge_node(LTOPO_LIST * meter_head, LTOPO_JUMP_EV_NODE * node)
         }
     return -1;
 }
+
 int ltopo_alg_merge(LTOPO_LIST * meter_head, LTOPO_LIST * ev_head)
 {
     LTOPO_JUMP_EV_NODE *pnode;
@@ -1327,7 +1297,7 @@ int ltopo_alg_merge2(LTOPO_LIST * meter_head, LTOPO_LIST * ev_head)
         }
     return 0;
 }
-int ltopo_alg_record_ev_list(char * filename, LTOPO_LIST * head)
+int ltopo_alg_record_ev_list(char * filename, LTOPO_LIST * head) 
 {
     ltopo_xml_save_ev_list(filename, head);
     return 0;
@@ -1626,19 +1596,119 @@ int ltopo_alg_scan_branch(int phase, char * id)
     return 0;
 
 }
-int ltopo_alg_scan(int phase, int action)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int ltopo_alg_scan(int phase, int action,FILE *fpo)
 {
-    int s1jump=0;
-    int i, j, ret;
-    int lcount/*扫描线个数*/, mcount/*meter box个数*/;
+//	LTOPO_LIST *head;
+//	LTOPO_LIST *p;
+	METER_INFO * meter;
+	int j,i;
+	
+	
+	int lcount/*扫描线个数*/, mcount/*meter box个数*/;
+	int iwsize,owsize; //inner window size, outer window size
+	//内层for循环次数为lcount - owsize，即为扫描线总数减去2
+	//后面需要加两个for循环，外层for循环为扫描各个mcount，内层for循环为根据扫描线个数遍历
+	iwsize=g_ltopoalg.wsize; // 扫描内窗口，共iwsize+1个点 
+    owsize=iwsize+2*LTOPO_WINDOW_MARGIN_SIZE;   // 扫描外窗口，共owsize+1个点
+    mcount=g_ltopoalg.mcount[phase];
+    lcount=(g_ltopoalg.end-g_ltopoalg.start)/g_ltopoalg.mcycle+1;
+	//内窗口和外窗口的长度都已经提前设置好，mcount在读目录的时候已经计算好了，lcount为时间戳之差
+
+	
+	
+	//head=(LTOPO_LIST*)malloc(sizeof(LTOPO_LIST));
+	//head->next=NULL;
+	for(j=0;j<g_ltopoalg.mcount[phase];j++)
+	{
+		//meter为该相位的第j个数据，内层for循环需要对meter里面的数据进行遍历
+		meter=&g_ltopoalg.mbox[phase][j];
+		fprintf(fpo,"mt:");
+		//for循环内为扫描一个load里面的所有时间点
+		for(i=0;i<lcount-owsize;i++)
+		{
+			int m_iwstatus;
+			//这里面需要加上扫描函数，扫描函数在ltopo_alg_scan_window中去找
+			//iwsize owsize i(扫描第几个窗口) j（扫描第几行数据）vl和vh
+			ltopo_alg_scan_window(&g_ltopoalg.mbox[phase][j], i, iwsize, owsize, 
+                                    g_ltopoalg.vh, g_ltopoalg.vl);
+			m_iwstatus = g_ltopoalg.mbox[phase][j].iwstatus;
+			fprintf(fpo,"%d",m_iwstatus);
+		}
+		//现在我们把scan_window里面生成的iwstatus输出一下看一看吧
+		//现在load已经存到里面了，所以不用我们自己再去弄一个链表了
+
+
+		//每输出一行表箱，我们就输出一个回车
+		fprintf(fpo,"\n");
+
+		//p->next=head->next;
+		//head->next=p;
+	}
+	
+	for(j=0;j<g_ltopoalg.bcount[phase];j++){
+		meter=&g_ltopoalg.branch[phase][j];
+		fprintf(fpo,"bt:");
+		for(i=0;i<lcount-owsize;i++)
+		{
+			int m_iwstatus;
+			//这里面需要加上扫描函数，扫描函数在ltopo_alg_scan_window中去找
+			//iwsize owsize i(扫描第几个窗口) j（扫描第几行数据）vl和vh
+			ltopo_alg_scan_window(&g_ltopoalg.branch[phase][j], i, iwsize, owsize, 
+                                    g_ltopoalg.vh, g_ltopoalg.vl);
+			
+			m_iwstatus = g_ltopoalg.branch[phase][j].iwstatus;
+			fprintf(fpo,"%d",m_iwstatus);
+		}
+		//现在我们把scan_window里面生成的iwstatus输出一下看一看吧
+		//现在load已经存到里面了，所以不用我们自己再去弄一个链表了
+
+		//每输出一行表箱，我们就输出一个回车
+		fprintf(fpo,"\n");
+		}
+	return 0;
+
+}
+
+
+
+
+
+
+
+
+//int ltopo_alg_scan(int phase, int action)
+//{
+//    int s1jump=0;
+//    int i, j, ret;
+//    int lcount/*扫描线个数*/, mcount/*meter box个数*/;
 
     //m_iw_s_count (在一根扫描线上的)表箱终端、内窗口、smooth的个数，
     //m_iw_j_count 表箱终端、内窗口、跳变的个数
-    int m_iw_s_count, m_iw_j_count;
+//    int m_iw_s_count, m_iw_j_count;
 
     //m_ow_s_count 表箱终端、外窗口、smooth的个数，
     //m_ow_j_count 表箱终端、外窗口、跳变的个数
-    int m_ow_s_count, m_ow_j_count;
+/*    int m_ow_s_count, m_ow_j_count;
 
     int iwsize,owsize; //inner window size, outer window size
 
@@ -1661,25 +1731,17 @@ int ltopo_alg_scan(int phase, int action)
         m_ow_s_count=0;
         m_ow_j_count=0;
         jindex1=jindex2=-1;
-#ifdef ALG_DEBUG            
-        printf(LTOPO_TAG "------scan line %d\n", i);
-#endif
+
         for(j=0;j<mcount;j++){ //j遍历meter box
-#ifdef ALG_DEBUG            
-            printf(LTOPO_TAG "scan %s, time %d\n", g_ltopoalg.mbox[phase][j].event_file, g_ltopoalg.start+i);
-if(i==434)
-    printf(LTOPO_TAG "ok\n");
-#endif
             ltopo_alg_scan_window(&g_ltopoalg.mbox[phase][j], i, iwsize, owsize, 
                                     g_ltopoalg.vh, g_ltopoalg.vl);
             if(g_ltopoalg.mbox[phase][j].owstatus==LTOPO_EVENT_TYPE_SMOOTH)
                 m_ow_s_count++;
             else if(g_ltopoalg.mbox[phase][j].owstatus==LTOPO_EVENT_TYPE_JUMP){
                 m_ow_j_count++;
-#ifdef ALG_DEBUG            
-            printf(LTOPO_TAG "LTOPO222 %s, sline %d, ts %d\n", g_ltopoalg.mbox[phase][j].event_file, i, (int)g_ltopoalg.start+i);
-#endif
                 }
+
+
             if(g_ltopoalg.mbox[phase][j].iwstatus==LTOPO_EVENT_TYPE_SMOOTH)
                 m_iw_s_count++;
             else if(g_ltopoalg.mbox[phase][j].iwstatus==LTOPO_EVENT_TYPE_JUMP){
@@ -1715,12 +1777,6 @@ if(i==434)
                 }
             i=i+owsize;
             }
-        
-#ifdef ALG_DEBUG            
-        printf(LTOPO_TAG "mbox iw smooth %d, mbox iw jump %d\n", m_iw_s_count, m_iw_j_count);
-        printf(LTOPO_TAG "mbox ow smooth %d, mbox ow jump %d\n", m_ow_s_count, m_ow_j_count);
-#endif
-
         }
 
     printf(LTOPO_TAG "#1234 single jump %d\n", s1jump);
@@ -1797,7 +1853,9 @@ if(i==434)
         printf(LTOPO_TAG "**************END s2**************\n");
 #endif //0        
     return 0;
-}
+}*/
+
+
 #if 0 //SCAN2
 int ltopo_scan_window2(METER_INFO * meter, int sline, int wsize,int vh, int vl)
 {
@@ -1874,6 +1932,8 @@ int ltopo_alg_ev_list_valid(LTOPO_LIST * head)
         }
     return 0;
 }
+
+
 int ltopo_alg_ev_validation_node(LTOPO_LIST * meter_head, LTOPO_JUMP_EV_NODE * node)
 {
     LTOPO_LIST * p;
@@ -1931,6 +1991,7 @@ int ltopo_alg_ev_validation(LTOPO_LIST * meter_head, LTOPO_LIST * ev_head)
 //如果返回值大于0，则处理正常
 //如果返回值小于0，则中断处理
 
+//mbindex 表箱终端的分支的编号
 int ltopo_alg_proc_s1_jump(int phase, int sline, int mbindex, int vl, char * f_addr, int action)
 {
     int j, bcount, iwsize, owsize, ret;
@@ -2745,4 +2806,36 @@ int ltopo_alg_statistics(char * path)
     ltopo_alg_clean_statistics(&statis);
     return 0;
 }
+
+
+float ltopo_alg_matching(LTOPO_LIST *m_head,LTOPO_LIST *b_head)
+{
+	LTOPO_JTIME *m_q;
+	LTOPO_LIST *m_p;
+	LTOPO_JTIME *b_q;
+	LTOPO_LIST *b_p;
+	int m_jtime,b_jtime;
+	int a=0,b=0;
+	m_p = m_head;
+	//找到m_head，就先遍历吧
+	while(m_head->next!=NULL)
+	{
+		//已知结构体type的成员member的地址ptr，求解结构体type的起始地址。
+		m_p = m_p->next;
+		m_q = container_of(m_head, LTOPO_JTIME, addr);
+		m_jtime = m_q.jump_time;
+		while(b_head->next!=NULL)
+		{
+			b_p = b_p->next;
+			b_q = container_of(b_head, LTOPO_JTIME, addr);
+			b_jtime = b_q.jump_time;
+			if(abs(b_jtime-m_jtime)<3)
+				a++;
+		}
+		b++;
+	}
+
+	return (float)a/b;
+}
+
 

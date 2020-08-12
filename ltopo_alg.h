@@ -30,6 +30,7 @@
 #define LTOPO_EV_VALIDATION_ERR_IGNORE -1
 #define LTOPO_EV_VALIDATION_ERR_CONFLICTS -2
 
+
 typedef enum
 {
     LTOPO_TYPE_PHASE_T=0,
@@ -44,6 +45,14 @@ typedef enum
 #define LTOPO_EVENT_TYPE_JUMP   2   // type, start, vcount, load[0]...load[vcount]
 #define LTOPO_EVENT_TYPE_MIDDLE 3
 #define LTOPO_EVENT_NO_DATA LTOPO_EVENT_TYPE_VOID
+
+typedef struct struct_LTOPO_JTIME
+{
+	LTOPO_LIST addr;
+	int jump_time; 
+}LTOPO_JTIME;
+
+
 typedef struct struct_LTOPO_LOAD
 {
     int i;      //current
@@ -75,6 +84,7 @@ typedef struct struct_METER_INFO
 #endif //M1
     int excluded;        //计算时是否排除在外
     LTOPO_LOAD * load;
+	LTOPO_LIST * head;
     struct struct_LTOPO_MBOX_NODE * pm;  //记录g_ltopo.meters中的指针
     int owstatus;           //outer window status
     int iwstatus;           //inner window status
@@ -168,8 +178,8 @@ int verify_mcount_bcount(int mcount, int bcount); //待实现
 int ltopo_alg_read_path(int phase);
 int ltopo_alg_debug_save_load(int phase);
 
-int ltopo_alg_scan(int phase, int action);
+int ltopo_alg_scan(int phase, int action,FILE *fpo);
 int ltopo_alg_statistics(char * path);
 int ltopo_alg_proc_s1_jump(int phase, int sline, int mbindex, int vl, char * f_addr, int action);
-
+float ltopo_alg_matching(LTOPO_LIST *m_head,LTOPO_LIST *b_head);
 #endif

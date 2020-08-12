@@ -189,7 +189,7 @@ return 0;
         }
     sleep(1);
 #elif defined CALCU_PATH 
-    run_path("/home/heguang/work/ltopo/test/tangshan/0712");
+    run_path("/home2/huangxc/git/ltopo/test/tangshan/0712");
 #elif defined STATIS_TEST
     ltopo_job_set_path(path);
     sleep(1);

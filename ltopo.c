@@ -837,7 +837,7 @@ int ltopo_load_xmldata()
 
     return 0;
 }
-int ltopo_alg_run_phase(int phase)
+int ltopo_alg_run_phase(int phase,FILE *fpo)
 {
     int ret;
 #ifdef X86_LINUX
@@ -856,9 +856,8 @@ int ltopo_alg_run_phase(int phase)
         }
     //调试对照用
     ltopo_alg_debug_save_load(phase);
-
     //扫描处理
-    ret=ltopo_alg_scan(phase, g_ltopoalg.action);
+    ret=ltopo_alg_scan(phase, g_ltopoalg.action,fpo);
     if(ret!=0){
         printf(LTOPO_ERR_TAG "%s, Error, ltopo_alg_scan failed\n", __FUNCTION__);
         }
@@ -868,7 +867,9 @@ int ltopo_alg_run_phase(int phase)
 
 int ltopo_alg_run()
 {
-    int i, ret;
+    int i, j, k, ret;
+	FILE* fpo;
+	fpo=fopen("./shishi.txt", "wb");
     printf(LTOPO_TAG "%s, cycle %d, vl %d, vh %d, window %d, path %s\n", __FUNCTION__, 
         g_ltopoalg.mcycle, g_ltopoalg.vl, g_ltopoalg.vh, g_ltopoalg.wsize, g_ltopoalg.event_path);
 #ifdef X86_LINUX        
@@ -876,7 +877,9 @@ int ltopo_alg_run()
 #else        
     for(i=LTOPO_TYPE_PHASE_T;i<LTOPO_TYPE_PHASE_A;i++){
 #endif        
-        ret=ltopo_alg_run_phase(i);
+
+		
+        ret=ltopo_alg_run_phase(i,fpo);
         if(ret!=0){
             printf(LTOPO_WARN_TAG "%s, ltopo_alg_run_phase failed, phase %d!\n", __FUNCTION__, i);
             if(g_ltopo.conflicts==1){
@@ -885,7 +888,23 @@ int ltopo_alg_run()
                 return LTOPO_ERR_CONFLICTS;
                 }
             }
+
+		float matching;
+		for(j=0;j<g_ltopoalg.mcount[i];j++)
+		{
+			for(k=0;j<g_ltopoalg.bcount[i];k++)
+			{
+				matching = ltopo_alg_matching(g_ltopoalg.mbox[i][j]->head,g_ltopoalg.branch[i][k]->head);
+				if(matching > 0.8)
+					fprintf(fpo,"%s %s matching",g_ltopoalg.mbox[i][j].addr,g_ltopoalg.branch[i][k].addr);
+			}
+				
+		}
+		
         }
+	
+		
+		
     return 0;
 }
 #ifdef LTOPO_ENABLE_THREAD
@@ -1123,8 +1142,8 @@ int ltopo_job_start(int action)
     ret=ltopo_alg_run();
     if(ret==LTOPO_ERR_CONFLICTS){
         printf(LTOPO_ERR_TAG "ltopo_alg_run conflicts\n");
-        ltopo_reset_all_meters();
-        ltopo_print_topo(&g_ltopo.meters.list);
+        //ltopo_reset_all_meters();
+        //ltopo_print_topo(&g_ltopo.meters.list);
         }
 
     if(g_ltopo.cb_fini)
