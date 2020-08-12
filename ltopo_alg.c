@@ -3,7 +3,6 @@
 #include <time.h>
 #include <string.h>
 #include <dirent.h>
-
 #include "ltopo_xml.h"
 #include "ltopo_alg.h"
 #include "ltopo.h"
@@ -451,7 +450,6 @@ LTOPO_LOAD * ltopo_alg_restore_load(char * filename)
     LTOPO_LOAD * l;
     LTOPO_EVENT event;
     FILE * fp=NULL;
-
     printf(LTOPO_TAG "enter %s, %s\n", __FUNCTION__, filename);
     snprintf(fullname, sizeof(fullname)-1, "%s/%s", g_ltopoalg.event_path, filename);
     count=(g_ltopoalg.end-g_ltopoalg.start)/g_ltopoalg.mcycle+1;
@@ -1669,7 +1667,21 @@ int ltopo_alg_scan_branch(int phase, char * id)
     return 0;
 
 }
-int ltopo_alg_scan_node(int phase, int sline, int wsize, int msize, int vh, int vl)
+int ltopo_alg_scan_node(int phase, char *id, int wsize)
+{
+    LTOPO_LIST head;
+    head.next->NULL;
+    METER_INFO *node;
+	int bcount, mcount;
+	int i, j;
+	for(i=0;i<wsize;i++)
+		{
+			
+		}
+}
+
+/* 
+ltopo_alg_scan_node(int phase, int sline, int wsize, int msize, int vh, int vl)
 	{
 		LTOPO_LIST *head;
 		LTOPO_LIST *p;
@@ -1692,12 +1704,15 @@ int ltopo_alg_scan_node(int phase, int sline, int wsize, int msize, int vh, int 
 		return 0;
 		
 	}
+
+*/
 int ltopo_alg_scan_ev(int phase,int action,LTOPO_JUMP_EV_INFO * mbev)
 {
 	int lcount/*扫描线的个数*/, mcount/*表箱终端的个数*/, bcount/*分支单元的个数*/;
 	int i,j;
 	int jindex[3600];
 	int m_w_s_count, m_w_j_count;	/*窗口跳变个数，平滑个数*/
+	int b_w_s_count, b_w_j_count;
 	mcount=g_ltopoalg.mcount[phase];
 	bcount=g_ltopoalg.bcount[phase];
 	LTOPO_LIST head;
@@ -1713,6 +1728,20 @@ int ltopo_alg_scan_ev(int phase,int action,LTOPO_JUMP_EV_INFO * mbev)
                     	jindex =j;
                	 	m_w_j_count++;
                 }
+		}
+	for(j=0;i<bcount;j++)
+		{
+			ltopo_alg_scan_node(&g_ltopoalg.phase, int sline, g_ltopoalg.wsize, int msize, g_ltopoalg.vh, g_ltopoalg.vl);
+			if(g_ltopoalg.branch[phase][j].wstatus==LTOPO_EVENT_TYPE_SMOOTH)
+                b_w_s_count++;
+            else if(g_ltopoalg.branch[phase][j].wstatus==LTOPO_EVENT_TYPE_JUMP)
+				{
+                	if(jindex ==-1) //首先记录到jindex数组中
+                    	jindex =j;
+               	 	b_w_j_count++;
+                }
+			
+		}
 	
 }
 
