@@ -4,9 +4,11 @@
 #include <string.h>
 #include <dirent.h>
 #include "math.h"
+#include "malloc.h"
 #include "ltopo_xml.h"
 #include "ltopo_alg.h"
 #include "ltopo.h"
+#include "ltopo_list.h"
 
 char * ltopo_phase_name[]={"t", "a", "b", "c"};
 char * ltopo_bp_prefix[]={"bt", "ba", "bb", "bc"}; // branch and phase prefix
@@ -1613,86 +1615,73 @@ int ltopo_alg_scan_branch(int phase, char * id)
 
 
 
-
-
-
 int ltopo_alg_scan(int phase, int action,FILE *fpo)
 {
-//	LTOPO_LIST *head;
-//	LTOPO_LIST *p;
-	METER_INFO * meter;
 	int j,i;
 	
+	LTOPO_JTIME * m_jump;
+	LTOPO_JTIME * b_jump;
 	
 	int lcount/*扫描线个数*/, mcount/*meter box个数*/;
 	int iwsize,owsize; //inner window size, outer window size
-	//内层for循环次数为lcount - owsize，即为扫描线总数减去2
-	//后面需要加两个for循环，外层for循环为扫描各个mcount，内层for循环为根据扫描线个数遍历
 	iwsize=g_ltopoalg.wsize; // 扫描内窗口，共iwsize+1个点 
     owsize=iwsize+2*LTOPO_WINDOW_MARGIN_SIZE;   // 扫描外窗口，共owsize+1个点
     mcount=g_ltopoalg.mcount[phase];
-    lcount=(g_ltopoalg.end-g_ltopoalg.start)/g_ltopoalg.mcycle+1;
-	//内窗口和外窗口的长度都已经提前设置好，mcount在读目录的时候已经计算好了，lcount为时间戳之差
-
+    lcount=(g_ltopoalg.end-g_ltopoalg.start)/g_ltopoalg.mcycle+1;	
 	
-	
-	//head=(LTOPO_LIST*)malloc(sizeof(LTOPO_LIST));
-	//head->next=NULL;
-	for(j=0;j<g_ltopoalg.mcount[phase];j++)
+	for(j=0;j<mcount;j++)
 	{
-		//meter为该相位的第j个数据，内层for循环需要对meter里面的数据进行遍历
-		meter=&g_ltopoalg.mbox[phase][j];
-		fprintf(fpo,"mt:");
-		//for循环内为扫描一个load里面的所有时间点
+		g_ltopoalg.mbox[phase][j].head.next=NULL;
+		int m_iwstatus=0,m_l_iwstatus=0;
+		fprintf(fpo,"%s:",g_ltopoalg.mbox[phase][j].event_file);
 		for(i=0;i<lcount-owsize;i++)
 		{
-			int m_iwstatus;
-			//这里面需要加上扫描函数，扫描函数在ltopo_alg_scan_window中去找
-			//iwsize owsize i(扫描第几个窗口) j（扫描第几行数据）vl和vh
 			ltopo_alg_scan_window(&g_ltopoalg.mbox[phase][j], i, iwsize, owsize, 
                                     g_ltopoalg.vh, g_ltopoalg.vl);
+			
+			m_l_iwstatus = m_iwstatus;
 			m_iwstatus = g_ltopoalg.mbox[phase][j].iwstatus;
-			fprintf(fpo,"%d",m_iwstatus);
+
+			if((m_iwstatus==2)&&(m_iwstatus!=m_l_iwstatus))
+			{
+				
+				m_jump=malloc(sizeof(LTOPO_JTIME));
+				fprintf(fpo,"%d",m_iwstatus);
+				m_jump->jump_time=i;
+				list_add(&g_ltopoalg.mbox[phase][j].head, &(m_jump->list));
+			}
 		}
-		//现在我们把scan_window里面生成的iwstatus输出一下看一看吧
-		//现在load已经存到里面了，所以不用我们自己再去弄一个链表了
-
-
-		//每输出一行表箱，我们就输出一个回车
 		fprintf(fpo,"\n");
-
-		//p->next=head->next;
-		//head->next=p;
 	}
 	
-	for(j=0;j<g_ltopoalg.bcount[phase];j++){
-		meter=&g_ltopoalg.branch[phase][j];
-		fprintf(fpo,"bt:");
+	
+	for(j=0;j<g_ltopoalg.bcount[phase];j++)
+	{
+		g_ltopoalg.branch[phase][j].head.next=NULL;
+		int b_iwstatus=0,b_l_iwstatus=0;
+		fprintf(fpo,"%s",g_ltopoalg.branch[phase][j].event_file);
 		for(i=0;i<lcount-owsize;i++)
 		{
-			int m_iwstatus;
-			//这里面需要加上扫描函数，扫描函数在ltopo_alg_scan_window中去找
-			//iwsize owsize i(扫描第几个窗口) j（扫描第几行数据）vl和vh
 			ltopo_alg_scan_window(&g_ltopoalg.branch[phase][j], i, iwsize, owsize, 
                                     g_ltopoalg.vh, g_ltopoalg.vl);
+
+			b_l_iwstatus = b_iwstatus;
+			b_iwstatus = g_ltopoalg.branch[phase][j].iwstatus;
 			
-			m_iwstatus = g_ltopoalg.branch[phase][j].iwstatus;
-			fprintf(fpo,"%d",m_iwstatus);
+			if((b_iwstatus==2)&&(b_iwstatus!=b_l_iwstatus))
+			{
+				
+				b_jump=malloc(sizeof(LTOPO_JTIME));
+				fprintf(fpo,"%d",b_iwstatus);
+				b_jump->jump_time=i;
+				b_jump->list.next=NULL;
+				list_add(&g_ltopoalg.branch[phase][j].head, &(b_jump->list));
+			}
 		}
-		//现在我们把scan_window里面生成的iwstatus输出一下看一看吧
-		//现在load已经存到里面了，所以不用我们自己再去弄一个链表了
-
-		//每输出一行表箱，我们就输出一个回车
 		fprintf(fpo,"\n");
-		}
+	}
 	return 0;
-
 }
-
-
-
-
-
 
 
 
@@ -2808,7 +2797,7 @@ int ltopo_alg_statistics(char * path)
 }
 
 
-float ltopo_alg_matching(LTOPO_LIST *m_head,LTOPO_LIST *b_head)
+float ltopo_alg_matching(LTOPO_LIST * m_head,LTOPO_LIST * b_head)
 {
 	LTOPO_JTIME *m_q;
 	LTOPO_LIST *m_p;
@@ -2816,25 +2805,37 @@ float ltopo_alg_matching(LTOPO_LIST *m_head,LTOPO_LIST *b_head)
 	LTOPO_LIST *b_p;
 	int m_jtime,b_jtime;
 	int a=0,b=0;
-	m_p = m_head;
-	//找到m_head，就先遍历吧
-	while(m_head->next!=NULL)
-	{
-		//已知结构体type的成员member的地址ptr，求解结构体type的起始地址。
-		m_p = m_p->next;
-		m_q = container_of(m_head, LTOPO_JTIME, addr);
-		m_jtime = m_q.jump_time;
-		while(b_head->next!=NULL)
-		{
-			b_p = b_p->next;
-			b_q = container_of(b_head, LTOPO_JTIME, addr);
-			b_jtime = b_q.jump_time;
+
+	list_for_each(m_p,m_head){
+		m_q = container_of(m_p, LTOPO_JTIME, list);
+		m_jtime = m_q->jump_time;
+		list_for_each(b_p, b_head){
+			b_q = container_of(b_p, LTOPO_JTIME, list);
+			b_jtime = b_q->jump_time;
 			if(abs(b_jtime-m_jtime)<3)
 				a++;
 		}
 		b++;
 	}
-
+	
+	/*m_p = m_head;
+	//找到m_head，就先遍历吧
+	while(m_p->next!=NULL)
+	{
+		//已知结构体type的成员member的地址ptr，求解结构体type的起始地址。
+		m_p = m_p->next;
+		m_q = container_of(m_p, LTOPO_JTIME,list);
+		m_jtime = m_q->jump_time;
+		while(b_p->next!=NULL)
+		{
+			b_p = b_p->next;
+			b_q = container_of(b_p, LTOPO_JTIME,list);
+			b_jtime = b_q->jump_time;
+			if(abs(b_jtime-m_jtime)<3)
+				a++;
+		}
+		b++;
+	}*/
 	return (float)a/b;
 }
 

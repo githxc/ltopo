@@ -837,6 +837,28 @@ int ltopo_load_xmldata()
 
     return 0;
 }
+
+void ltopo_print_jlist(LTOPO_LIST * head)
+{
+    LTOPO_LIST *p;
+    LTOPO_JTIME  *pmeter;
+    printf(LTOPO_TAG "**************meters***************\n");
+    list_for_each(p, head){
+        pmeter=container_of(p, LTOPO_JTIME, list);
+        printf(LTOPO_TAG "[jtime]\n");
+        printf(LTOPO_TAG "TIME %d\n",pmeter->jump_time);
+        }
+}
+int list_show2(LTOPO_LIST *head)
+{
+    LTOPO_LIST *p;
+    if(!head )
+        return -1;
+    for (p = head->next; p != NULL; p = p->next)
+        ltopo_print_jlist(p);
+    return 0;
+}
+
 int ltopo_alg_run_phase(int phase,FILE *fpo)
 {
     int ret;
@@ -861,24 +883,33 @@ int ltopo_alg_run_phase(int phase,FILE *fpo)
     if(ret!=0){
         printf(LTOPO_ERR_TAG "%s, Error, ltopo_alg_scan failed\n", __FUNCTION__);
         }
-    ltopo_alg_clean(phase);
+	
+	int j,k;
+	float matching=0;
+	
+	for(j=0;j<g_ltopoalg.mcount[phase];j++)
+	{
+		//list_show2(&g_ltopoalg.mbox[phase][j].head);
+		for(k=0;k<g_ltopoalg.bcount[phase];k++)
+		{
+			matching = ltopo_alg_matching(&g_ltopoalg.mbox[phase][j].head,&g_ltopoalg.branch[phase][k].head);
+			if(matching > 0.8)
+				fprintf(fpo,"%s %s matching\n",g_ltopoalg.mbox[phase][j].event_file,g_ltopoalg.branch[phase][k].event_file);
+		}
+	}
+	ltopo_alg_clean(phase);
     return ret;
 }
 
 int ltopo_alg_run()
 {
-    int i, j, k, ret;
+    int i, ret;
 	FILE* fpo;
 	fpo=fopen("./shishi.txt", "wb");
     printf(LTOPO_TAG "%s, cycle %d, vl %d, vh %d, window %d, path %s\n", __FUNCTION__, 
         g_ltopoalg.mcycle, g_ltopoalg.vl, g_ltopoalg.vh, g_ltopoalg.wsize, g_ltopoalg.event_path);
-#ifdef X86_LINUX        
-    for(i=LTOPO_TYPE_PHASE_A;i<LTOPO_TYPE_PHASE_MAX;i++){
-#else        
-    for(i=LTOPO_TYPE_PHASE_T;i<LTOPO_TYPE_PHASE_A;i++){
-#endif        
-
-		
+    i=0;
+    for(i=LTOPO_TYPE_PHASE_T;i<LTOPO_TYPE_PHASE_A;i++){	
         ret=ltopo_alg_run_phase(i,fpo);
         if(ret!=0){
             printf(LTOPO_WARN_TAG "%s, ltopo_alg_run_phase failed, phase %d!\n", __FUNCTION__, i);
@@ -888,25 +919,11 @@ int ltopo_alg_run()
                 return LTOPO_ERR_CONFLICTS;
                 }
             }
-
-		float matching;
-		for(j=0;j<g_ltopoalg.mcount[i];j++)
-		{
-			for(k=0;j<g_ltopoalg.bcount[i];k++)
-			{
-				matching = ltopo_alg_matching(g_ltopoalg.mbox[i][j]->head,g_ltopoalg.branch[i][k]->head);
-				if(matching > 0.8)
-					fprintf(fpo,"%s %s matching",g_ltopoalg.mbox[i][j].addr,g_ltopoalg.branch[i][k].addr);
-			}
-				
-		}
-		
-        }
-	
-		
-		
+   	}
     return 0;
 }
+
+	
 #ifdef LTOPO_ENABLE_THREAD
 void* ltopo_thread_alg(void *arg)
 {
