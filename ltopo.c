@@ -884,7 +884,7 @@ int ltopo_alg_run_phase(int phase,FILE *fpo)
         printf(LTOPO_ERR_TAG "%s, Error, ltopo_alg_scan failed\n", __FUNCTION__);
         }
 	
-	int j,k;
+	/*int j,k;
 	float matching=0;
 	
 	for(j=0;j<g_ltopoalg.mcount[phase];j++)
@@ -896,7 +896,7 @@ int ltopo_alg_run_phase(int phase,FILE *fpo)
 			if(matching > 0.8)
 				fprintf(fpo,"%s %s matching\n",g_ltopoalg.mbox[phase][j].event_file,g_ltopoalg.branch[phase][k].event_file);
 		}
-	}
+	}*/
 	ltopo_alg_clean(phase);
     return ret;
 }
@@ -1159,8 +1159,8 @@ int ltopo_job_start(int action)
     ret=ltopo_alg_run();
     if(ret==LTOPO_ERR_CONFLICTS){
         printf(LTOPO_ERR_TAG "ltopo_alg_run conflicts\n");
-        //ltopo_reset_all_meters();
-        //ltopo_print_topo(&g_ltopo.meters.list);
+        ltopo_reset_all_meters();
+        ltopo_print_topo(&g_ltopo.meters.list);
         }
 
     if(g_ltopo.cb_fini)

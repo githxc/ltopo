@@ -1621,6 +1621,10 @@ int ltopo_alg_scan(int phase, int action,FILE *fpo)
 	
 	LTOPO_JTIME * m_jump;
 	LTOPO_JTIME * b_jump;
+	LTOPO_MB_ADDR *m_addr;
+	LTOPO_MB_ADDR *b_addr;
+	LTOPO_LIST * m_list;
+	LTOPO_LIST * b_list;
 	
 	int lcount/*扫描线个数*/, mcount/*meter box个数*/;
 	int iwsize,owsize; //inner window size, outer window size
@@ -1631,9 +1635,7 @@ int ltopo_alg_scan(int phase, int action,FILE *fpo)
 	
 	for(j=0;j<mcount;j++)
 	{
-		g_ltopoalg.mbox[phase][j].head.next=NULL;
 		int m_iwstatus=0,m_l_iwstatus=0;
-		fprintf(fpo,"%s:",g_ltopoalg.mbox[phase][j].event_file);
 		for(i=0;i<lcount-owsize;i++)
 		{
 			ltopo_alg_scan_window(&g_ltopoalg.mbox[phase][j], i, iwsize, owsize, 
@@ -1642,24 +1644,36 @@ int ltopo_alg_scan(int phase, int action,FILE *fpo)
 			m_l_iwstatus = m_iwstatus;
 			m_iwstatus = g_ltopoalg.mbox[phase][j].iwstatus;
 
+			//此处检测到了一个跳变，由张晶继续优化
 			if((m_iwstatus==2)&&(m_iwstatus!=m_l_iwstatus))
 			{
-				
-				m_jump=malloc(sizeof(LTOPO_JTIME));
-				fprintf(fpo,"%d",m_iwstatus);
-				m_jump->jump_time=i;
-				list_add(&g_ltopoalg.mbox[phase][j].head, &(m_jump->list));
+				int tmp = 0;
+				list_for_each(m_list,&m_jhead){
+					m_addr = container_of(m_list, LTOPO_MB_ADDR, list);
+					if(strcmp(m_addr->event_file,g_ltopoalg.mbox[phase][j].event_file)==0){
+						m_jump = malloc(sizeof(LTOPO_JTIME));
+						m_jump->jump_time = i + g_ltopoalg.start;
+						list_add(&m_addr->mb_head, &m_jump->list);
+						tmp = 1;
+						break;
+					}
+				}
+				if(tmp == 0){
+					m_jump = malloc(sizeof(LTOPO_JTIME));
+					m_addr = malloc(sizeof(LTOPO_MB_ADDR));
+					m_jump->jump_time = i + g_ltopoalg.start;
+					strcpy(m_addr->event_file,g_ltopoalg.mbox[phase][j].event_file);
+					m_addr->mb_head.next = NULL;
+					list_add(&m_addr->mb_head,&m_jump->list);
+					list_add(&m_jhead,&m_addr->list);
+				}
 			}
 		}
-		fprintf(fpo,"\n");
 	}
-	
 	
 	for(j=0;j<g_ltopoalg.bcount[phase];j++)
 	{
-		g_ltopoalg.branch[phase][j].head.next=NULL;
 		int b_iwstatus=0,b_l_iwstatus=0;
-		fprintf(fpo,"%s",g_ltopoalg.branch[phase][j].event_file);
 		for(i=0;i<lcount-owsize;i++)
 		{
 			ltopo_alg_scan_window(&g_ltopoalg.branch[phase][j], i, iwsize, owsize, 
@@ -1667,18 +1681,33 @@ int ltopo_alg_scan(int phase, int action,FILE *fpo)
 
 			b_l_iwstatus = b_iwstatus;
 			b_iwstatus = g_ltopoalg.branch[phase][j].iwstatus;
-			
+
+			//此处检测到了一个跳变，由张晶继续优化
 			if((b_iwstatus==2)&&(b_iwstatus!=b_l_iwstatus))
 			{
-				
-				b_jump=malloc(sizeof(LTOPO_JTIME));
-				fprintf(fpo,"%d",b_iwstatus);
-				b_jump->jump_time=i;
-				b_jump->list.next=NULL;
-				list_add(&g_ltopoalg.branch[phase][j].head, &(b_jump->list));
+				int tmp = 0;
+				list_for_each(b_list,&b_jhead){
+					
+					b_addr = container_of(b_list, LTOPO_MB_ADDR, list);
+					if(strcmp(b_addr->event_file,g_ltopoalg.branch[phase][j].event_file)==0){
+						b_jump = malloc(sizeof(LTOPO_JTIME));
+						b_jump->jump_time = i + g_ltopoalg.start;
+						list_add(&b_addr->mb_head, &b_jump->list);
+						tmp = 1;
+						break;
+					}
+				}
+				if(tmp == 0){
+					b_jump = malloc(sizeof(LTOPO_JTIME));
+					b_addr = malloc(sizeof(LTOPO_MB_ADDR));
+					b_jump->jump_time = i + g_ltopoalg.start;
+					strcpy(b_addr->event_file,g_ltopoalg.branch[phase][j].event_file);
+					b_addr->mb_head.next = NULL;
+					list_add(&b_addr->mb_head,&b_jump->list);
+					list_add(&b_jhead,&b_addr->list);
+				}
 			}
-		}
-		fprintf(fpo,"\n");
+		};
 	}
 	return 0;
 }
@@ -2410,6 +2439,9 @@ int verify_mcount_bcount(int mcount, int bcount)
 }
 
 LTOPO_ALG g_ltopoalg;
+LTOPO_LIST m_jhead;
+LTOPO_LIST b_jhead;
+
 //path look like: /home/user/work/ltopo/ltopo/data/input/1585219561-1585223161
 int ltopo_alg_set_path(char * path)
 {

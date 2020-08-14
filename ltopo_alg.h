@@ -84,7 +84,6 @@ typedef struct struct_METER_INFO
 #endif //M1
     int excluded;        //计算时是否排除在外
     LTOPO_LOAD * load;
-	LTOPO_LIST head;
     struct struct_LTOPO_MBOX_NODE * pm;  //记录g_ltopo.meters中的指针
     int owstatus;           //outer window status
     int iwstatus;           //inner window status
@@ -110,9 +109,20 @@ typedef struct struct_LTOPO_ALG
 } LTOPO_ALG;
 
 extern LTOPO_ALG g_ltopoalg;
+extern LTOPO_LIST m_jhead;
+extern LTOPO_LIST b_jhead;
+
 
 #define LTOPO_DIRECTION_UP 1
 #define LTOPO_DIRECTION_DOWN -1
+
+typedef struct struct_LTOPO_MB_ADDR
+{
+	LTOPO_LIST mb_head;
+	char event_file[FILENAME_LEN]; //数据文件名，ba-000001-0， ma-000002
+	LTOPO_LIST list;
+}LTOPO_MB_ADDR;
+
 typedef struct struct_LTOPO_JUMP_EV_INFO 
 {
     int phase;

@@ -17,6 +17,17 @@ int run_path(char * path)
     struct dirent *entry;  
     char inner_path[256];
 
+	//对jhead进行初始化
+	m_jhead.next = NULL;
+	b_jhead.next = NULL;
+	LTOPO_MB_ADDR *m_addr;
+	LTOPO_MB_ADDR *b_addr;
+	LTOPO_LIST *m_list;
+	LTOPO_LIST *b_list;
+	//打开路径
+	FILE *fpo;
+	fpo = fopen("./zouni.txt","wb");
+	
     if((dir = opendir(path))==NULL)   {  
         printf(LTOPO_ERR_TAG "opendir failed!");  
         return -1;  
@@ -40,7 +51,20 @@ int run_path(char * path)
             }
         }
     closedir(dir);
-    dir=NULL;
+
+	float matching;
+	//在runpath下面遍历节点
+	list_for_each(m_list, &m_jhead){
+		m_addr = container_of(m_list, LTOPO_MB_ADDR, list);
+		list_for_each(b_list, &b_jhead){
+			b_addr = container_of(b_list, LTOPO_MB_ADDR, list);
+			matching = ltopo_alg_matching(&m_addr->mb_head, &b_addr->mb_head);
+						if(matching > 0.2)
+			fprintf(fpo,"%s %s %f matching\n",m_addr->event_file,b_addr->event_file,matching);
+		}
+	}
+	
+	dir=NULL;
     return 0;
 }
 void cb_finish(char * path, int result)
@@ -189,7 +213,7 @@ return 0;
         }
     sleep(1);
 #elif defined CALCU_PATH 
-    run_path("/home2/huangxc/git/ltopo/test/tangshan/0712");
+    run_path("/home/user/Desktop/ltopo/test/tangshan/0712");
 #elif defined STATIS_TEST
     ltopo_job_set_path(path);
     sleep(1);
